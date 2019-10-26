@@ -1,40 +1,63 @@
 import sqlite3
-from flask import Flask, _app_ctx_stack
+from flask import Flask
+from flask_restful import Resource, Api, reqparse
 
 app = Flask(__name__)
+api = Api(app)
 DATABASE = './location.db'
 
-@app.route('/')
-def sql_database():
-    db = connect()
-    if not db:
-        return "Failed to connect"
-    else:
-        return select_all(db)
+class wyw_select_all(Resource):
+    def get(self):
+        db = None
+        try:
+            db = sqlite3.connect(DATABASE)
+        except Error as e:
+            print(e)
 
-def connect():
-    conn = None
-    try:
-        conn = sqlite3.connect(DATABASE)
-    except Error as e:
-        print(e)
+        if not db:
+            return "Failed to connect"
+        else:
+            db.row_factory = self.dict_factory
+            cur = db.cursor()
+            cur.execute("SELECT * FROM location_values")
+            rows = cur.fetchall()
+            return rows
 
-    return conn
+    # site dict_factory, got it from the sqlite3 docs
+    def dict_factory(self, cursor, row):
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
 
-def select_all(conn):
-    conn.row_factory = dict_factory
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM location_values")
-    rows = cur.fetchall()
+class wyw_select_one(Resource):
+    def get(self, location_id):
+        
+        db = None
+        try:
+            db = sqlite3.connect(DATABASE)
+        except Error as e:
+            print(e)
 
-    return str(rows)
+        if not db:
+            return "Failed to connect"
+        else:
+            db.row_factory = self.dict_factory
+            cur = db.cursor()
+            cur.execute("SELECT * FROM location_values WHERE location_id={}".format(location_id))
+            rows = cur.fetchall()
+            return rows
 
-# site dict_factory, got it from the sqlite3 docs
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
+    # site dict_factory, got it from the sqlite3 docs
+    def dict_factory(self, cursor, row):
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
+
+api.add_resource(wyw_select_all, '/')
+api.add_resource(wyw_select_one, '/location/<location_id>')
+
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
